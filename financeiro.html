@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financeiro — GestãoPro</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <script type="module">
+    import { Auth, DataHelper, Theme, Format, showToast } from './app.js';
+    import { renderLayout } from './layout.js';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      Theme.init();
+      await renderLayout('Financeiro', 'Controle de entradas e saídas', 'financeiro');
+      
+      const pageContent = document.getElementById('pageContent');
+      if (!pageContent) return;
+
+      pageContent.innerHTML = `
+        <div class="grid-stats" style="margin-bottom:32px;">
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Saldo Atual</p>
+            <h2 id="totalSaldo" style="font-size:28px; font-weight:800;">R$ 0,00</h2>
+          </div>
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--success); margin-bottom:8px;">Total Entradas</p>
+            <h2 id="totalEntradas" style="font-size:28px; font-weight:800; color:var(--success);">R$ 0,00</h2>
+          </div>
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--danger); margin-bottom:8px;">Total Saídas</p>
+            <h2 id="totalSaidas" style="font-size:28px; font-weight:800; color:var(--danger);">R$ 0,00</h2>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:32px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+            <div style="display:flex; gap:12px; flex:1; min-width:300px;">
+              <div style="position:relative; flex:1;">
+                <i data-lucide="search" size="18" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+                <input type="text" id="searchTrans" placeholder="Buscar transação..." style="width:100%; height:48px; padding-left:44px; border-radius:12px; border:1px solid var(--border-color); background:var(--bg-input);">
+              </div>
+              <select id="filterType" style="height:48px; padding:0 16px; border-radius:12px; border:1px solid var(--border-color); background:var(--bg-card);">
+                <option value="todos">Todos</option>
+                <option value="income">Entradas</option>
+                <option value="expense">Saídas</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:12px;">
+              <button class="btn btn-outline" id="exportBtn">
+                <i data-lucide="file-spreadsheet"></i> Exportar CSV
+              </button>
+              <button class="btn btn-primary" id="openModalBtn">
+                <i data-lucide="plus"></i> Nova Transação
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Data</th>
+                  <th>Valor</th>
+                  <th style="text-align:right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="transList"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal Nova Transação -->
+        <div id="transModal" class="modal-overlay" style="display:none;">
+          <div class="modal-content animate-in" style="max-width:500px;">
+            <h2 style="margin-bottom:24px;">Nova Transação</h2>
+            <form id="transForm" style="display:grid; gap:20px;">
+              <div class="form-group">
+                <label>Descrição</label>
+                <input type="text" id="desc" required placeholder="Ex: Venda de Produto">
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div class="form-group">
+                  <label>Valor</label>
+                  <input type="number" step="0.01" id="amount" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                  <label>Tipo</label>
+                  <select id="type" required>
+                    <option value="income">Entrada</option>
+                    <option value="expense">Saída</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div class="form-group">
+                  <label>Categoria</label>
+                  <input type="text" id="category" required placeholder="Ex: Vendas">
+                </div>
+                <div class="form-group">
+                  <label>Data</label>
+                  <input type="date" id="date" required>
+                </div>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:12px;">
+                <button type="button" class="btn btn-outline" id="closeModalBtn">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Transação</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Botão Suporte WhatsApp -->
+        <a href="https://wa.me/5579996069704?text=Olá! Preciso de suporte no sistema GestãoPro." target="_blank" class="fab-support" title="Falar com Suporte">
+          <i data-lucide="message-circle" size="24"></i>
+        </a>
+      `;
+
+      if (window.lucide) window.lucide.createIcons();
+      initFinanceiro();
+    });
+
+    async function initFinanceiro() {
+      const transList = document.getElementById('transList');
+      const transForm = document.getElementById('transForm');
+      const openModalBtn = document.getElementById('openModalBtn');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      const transModal = document.getElementById('transModal');
+      const searchInput = document.getElementById('searchTrans');
+      const filterType = document.getElementById('filterType');
+      const exportBtn = document.getElementById('exportBtn');
+
+      const loadData = async () => {
+        const transactions = await DataHelper.getAll('transactions');
+        const searchTerm = searchInput.value.toLowerCase();
+        const typeFilter = filterType.value;
+
+        const filtered = transactions.filter(t => {
+          const matchesSearch = t.description.toLowerCase().includes(searchTerm);
+          const matchesType = typeFilter === 'todos' || t.type === typeFilter;
+          return matchesSearch && matchesType;
+        }).reverse();
+
+        let inTotal = 0, outTotal = 0;
+        transactions.forEach(t => {
+          if (t.type === 'income' || t.type === 'receita' || t.type === 'entrada') inTotal += parseFloat(t.amount);
+          else outTotal += parseFloat(t.amount);
+        });
+
+        document.getElementById('totalEntradas').textContent = Format.currency(inTotal);
+        document.getElementById('totalSaidas').textContent = Format.currency(outTotal);
+        document.getElementById('totalSaldo').textContent = Format.currency(inTotal - outTotal);
+
+        if (filtered.length === 0) {
+          transList.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:40px; color:var(--text-muted);">Nenhuma transação encontrada.</td></tr>';
+        } else {
+          transList.innerHTML = filtered.map(t => `
+            <tr>
+              <td style="font-weight:700; color:var(--text-main);">${t.description}</td>
+              <td><span style="background:var(--bg-hover); padding:4px 10px; border-radius:30px; font-size:12px; font-weight:700; color:var(--text-muted);">${t.category}</span></td>
+              <td>${Format.date(t.date)}</td>
+              <td style="color:${(t.type === 'income' || t.type === 'receita' || t.type === 'entrada') ? 'var(--success)' : 'var(--danger)'}; font-weight:800;">
+                ${(t.type === 'income' || t.type === 'receita' || t.type === 'entrada') ? '+' : '-'} ${Format.currency(t.amount)}
+              </td>
+              <td style="text-align:right;">
+                <button class="btn btn-outline" style="padding:6px; border:none; color:var(--danger);" onclick="deleteTrans('${t.id}')">
+                  <i data-lucide="trash-2" size="18"></i>
+                </button>
+              </td>
+            </tr>
+          `).join('');
+          if (window.lucide) window.lucide.createIcons();
+        }
+      };
+
+      window.deleteTrans = async (id) => {
+        if (confirm('Deseja excluir esta transação?')) {
+          await DataHelper.delete('transactions', id);
+          showToast('Transação excluída!');
+          loadData();
+        }
+      };
+
+      openModalBtn.onclick = () => {
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        transModal.style.display = 'flex';
+      };
+      closeModalBtn.onclick = () => transModal.style.display = 'none';
+      
+      transForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const item = {
+          description: document.getElementById('desc').value,
+          amount: parseFloat(document.getElementById('amount').value),
+          type: document.getElementById('type').value,
+          category: document.getElementById('category').value,
+          date: document.getElementById('date').value
+        };
+        await DataHelper.add('transactions', item);
+        showToast('Transação salva!');
+        transModal.style.display = 'none';
+        transForm.reset();
+        loadData();
+      };
+
+      exportBtn.onclick = async () => {
+        const transactions = await DataHelper.getAll('transactions');
+        const csv = [
+          ['Descricao', 'Categoria', 'Data', 'Tipo', 'Valor'],
+          ...transactions.map(t => [t.description, t.category, t.date, t.type, t.amount])
+        ].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "financeiro_gestaopro.csv";
+        link.click();
+      };
+
+      searchInput.oninput = loadData;
+      filterType.onchange = loadData;
+      
+      loadData();
+    }
+  </script>
+</body>
+</html>

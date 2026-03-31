@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estoque — GestãoPro</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <script type="module">
+    import { Auth, DataHelper, Theme, Format, showToast } from './app.js';
+    import { renderLayout } from './layout.js';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      Theme.init();
+      await renderLayout('Estoque', 'Gerenciamento de produtos e vendas', 'estoque');
+      
+      const pageContent = document.getElementById('pageContent');
+      if (!pageContent) return;
+
+      pageContent.innerHTML = `
+        <div class="grid-stats" style="margin-bottom:32px;">
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Total em Estoque (Custo)</p>
+            <h2 id="totalCusto" style="font-size:28px; font-weight:800;">R$ 0,00</h2>
+          </div>
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--primary); margin-bottom:8px;">Potencial de Venda</p>
+            <h2 id="totalVenda" style="font-size:28px; font-weight:800; color:var(--primary);">R$ 0,00</h2>
+          </div>
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--success); margin-bottom:8px;">Lucro Estimado</p>
+            <h2 id="totalLucro" style="font-size:28px; font-weight:800; color:var(--success);">R$ 0,00</h2>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+            <div style="position:relative; flex:1; max-width:400px;">
+              <i data-lucide="search" size="18" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+              <input type="text" id="searchProd" placeholder="Buscar produto..." style="width:100%; height:48px; padding-left:44px; border-radius:12px; border:1px solid var(--border-color); background:var(--bg-input);">
+            </div>
+            <button class="btn btn-primary" id="openProdModal">
+              <i data-lucide="plus"></i> Novo Produto
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Quantidade</th>
+                  <th>Preço Custo</th>
+                  <th>Preço Venda</th>
+                  <th>Vendidos</th>
+                  <th>Lucro Total</th>
+                  <th style="text-align:right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="productList"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Modal Produto -->
+        <div id="prodModal" class="modal-overlay" style="display:none;">
+          <div class="modal-content animate-in" style="max-width:500px;">
+            <h2 id="modalTitle" style="margin-bottom:24px;">Novo Produto</h2>
+            <form id="prodForm" style="display:grid; gap:20px;">
+              <input type="hidden" id="prodId">
+              <div class="form-group">
+                <label>Nome do Produto</label>
+                <input type="text" id="pName" required placeholder="Ex: Camiseta Algodão">
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div class="form-group">
+                  <label>Quantidade</label>
+                  <input type="number" id="pQty" required placeholder="0">
+                </div>
+                <div class="form-group">
+                  <label>Categoria</label>
+                  <input type="text" id="pCat" required placeholder="Ex: Vestuário">
+                </div>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div class="form-group">
+                  <label>Preço de Custo (R$)</label>
+                  <input type="number" step="0.01" id="pCost" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                  <label>Preço de Venda (R$)</label>
+                  <input type="number" step="0.01" id="pPrice" required placeholder="0.00">
+                </div>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:12px;">
+                <button type="button" class="btn btn-outline" id="closeProdModal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Produto</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Botão Suporte WhatsApp -->
+        <a href="https://wa.me/5579996069704?text=Olá! Preciso de suporte no sistema GestãoPro." target="_blank" class="fab-support" title="Falar com Suporte">
+          <i data-lucide="message-circle" size="24"></i>
+        </a>
+      `;
+
+      if (window.lucide) window.lucide.createIcons();
+      initEstoque();
+    });
+
+    async function initEstoque() {
+      const productList = document.getElementById('productList');
+      const prodForm = document.getElementById('prodForm');
+      const openProdModal = document.getElementById('openProdModal');
+      const closeProdModal = document.getElementById('closeProdModal');
+      const prodModal = document.getElementById('prodModal');
+      const searchProd = document.getElementById('searchProd');
+
+      const loadData = async () => {
+        const products = await DataHelper.getAll('products');
+        const search = searchProd.value.toLowerCase();
+        
+        const filtered = products.filter(p => p.name.toLowerCase().includes(search)).reverse();
+
+        let totalCusto = 0, totalVenda = 0, totalLucroReal = 0;
+        products.forEach(p => {
+          const qty = parseInt(p.quantity || 0);
+          const sold = parseInt(p.soldCount || 0);
+          const cost = parseFloat(p.cost || p.costPrice || 0);
+          const sale = parseFloat(p.price || p.salePrice || 0);
+          
+          totalCusto += (cost * qty);
+          totalVenda += (sale * qty);
+          totalLucroReal += parseFloat(p.totalProfit || 0);
+        });
+
+        document.getElementById('totalCusto').textContent = Format.currency(totalCusto);
+        document.getElementById('totalVenda').textContent = Format.currency(totalVenda);
+        document.getElementById('totalLucro').textContent = Format.currency(totalLucroReal);
+
+        if (filtered.length === 0) {
+          productList.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">Nenhum produto encontrado.</td></tr>';
+        } else {
+          productList.innerHTML = filtered.map(p => {
+            const qty = parseInt(p.quantity || 0);
+            const cost = parseFloat(p.cost || p.costPrice || 0);
+            const sale = parseFloat(p.price || p.salePrice || 0);
+            const isLow = qty < 5;
+            
+            return `
+              <tr>
+                <td>
+                  <div style="font-weight:700; color:var(--text-main);">${p.name}</div>
+                  <div style="font-size:11px; color:var(--text-muted);">${p.category || 'Geral'}</div>
+                </td>
+                <td>
+                  <span style="font-weight:800; color:${isLow ? 'var(--danger)' : 'var(--text-main)'};">
+                    ${qty} un.
+                    ${isLow ? '<span class="badge-low" style="background:var(--danger); color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:8px; animation: pulse 1.5s infinite;">BAIXO</span>' : ''}
+                  </span>
+                </td>
+                <td>${Format.currency(cost)}</td>
+                <td>${Format.currency(sale)}</td>
+                <td style="font-weight:600; color:var(--text-muted);">${p.soldCount || 0} un.</td>
+                <td style="color:var(--success); font-weight:800;">${Format.currency(p.totalProfit || 0)}</td>
+                <td style="text-align:right;">
+                  <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button class="btn btn-outline" style="padding:6px; color:var(--success); border:none;" onclick="venderProd('${p.id}')" title="Vender">
+                      <i data-lucide="shopping-cart" size="18"></i>
+                    </button>
+                    <button class="btn btn-outline" style="padding:6px; color:var(--primary); border:none;" onclick="editProd('${p.id}')" title="Editar">
+                      <i data-lucide="edit" size="18"></i>
+                    </button>
+                    <button class="btn btn-outline" style="padding:6px; color:var(--danger); border:none;" onclick="deleteProd('${p.id}')" title="Excluir">
+                      <i data-lucide="trash-2" size="18"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+          if (window.lucide) window.lucide.createIcons();
+        }
+      };
+
+      window.venderProd = async (id) => {
+        const qtyStr = prompt('Quantidade para vender:');
+        if (!qtyStr || isNaN(qtyStr) || parseInt(qtyStr) <= 0) return;
+        const qty = parseInt(qtyStr);
+
+        const products = await DataHelper.getAll('products');
+        const p = products.find(x => x.id === id);
+        if (qty > parseInt(p.quantity)) {
+          showToast('Estoque insuficiente!', 'danger');
+          return;
+        }
+
+        const cost = parseFloat(p.cost || p.costPrice || 0);
+        const sale = parseFloat(p.price || p.salePrice || 0);
+        const profit = (sale - cost) * qty;
+
+        const updateData = {
+          quantity: parseInt(p.quantity) - qty,
+          soldCount: (parseInt(p.soldCount || 0) + qty),
+          totalProfit: (parseFloat(p.totalProfit || 0) + profit)
+        };
+
+        await DataHelper.update('products', id, updateData);
+        
+        await DataHelper.add('transactions', {
+          description: `Venda: ${p.name} (${qty} un.)`,
+          amount: sale * qty,
+          type: 'income',
+          category: 'Vendas',
+          date: new Date().toISOString().split('T')[0]
+        });
+
+        showToast('Venda realizada com sucesso!');
+        loadData();
+      };
+
+      window.editProd = async (id) => {
+        const products = await DataHelper.getAll('products');
+        const p = products.find(x => x.id === id);
+        document.getElementById('prodId').value = p.id;
+        document.getElementById('pName').value = p.name;
+        document.getElementById('pQty').value = p.quantity;
+        document.getElementById('pCat').value = p.category || '';
+        document.getElementById('pCost').value = p.cost || p.costPrice || 0;
+        document.getElementById('pPrice').value = p.price || p.salePrice || 0;
+        document.getElementById('modalTitle').textContent = 'Editar Produto';
+        prodModal.style.display = 'flex';
+      };
+
+      window.deleteProd = async (id) => {
+        if (confirm('Deseja excluir este produto?')) {
+          await DataHelper.delete('products', id);
+          showToast('Produto removido!');
+          loadData();
+        }
+      };
+
+      openProdModal.onclick = () => {
+        prodForm.reset();
+        document.getElementById('prodId').value = '';
+        document.getElementById('modalTitle').textContent = 'Novo Produto';
+        prodModal.style.display = 'flex';
+      };
+      closeProdModal.onclick = () => prodModal.style.display = 'none';
+
+      prodForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('prodId').value;
+        const data = {
+          name: document.getElementById('pName').value,
+          quantity: parseInt(document.getElementById('pQty').value),
+          category: document.getElementById('pCat').value,
+          cost: parseFloat(document.getElementById('pCost').value),
+          price: parseFloat(document.getElementById('pPrice').value)
+        };
+
+        if (id) {
+          await DataHelper.update('products', id, data);
+          showToast('Produto atualizado!');
+        } else {
+          data.soldCount = 0;
+          data.totalProfit = 0;
+          await DataHelper.add('products', data);
+          showToast('Produto cadastrado!');
+        }
+
+        prodModal.style.display = 'none';
+        loadData();
+      };
+
+      searchProd.oninput = loadData;
+      loadData();
+    }
+  </script>
+</body>
+</html>

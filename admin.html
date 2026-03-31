@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Admin — GestãoPro</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <script type="module">
+    import { Auth, DataHelper, Theme, showToast } from './app.js';
+    import { renderLayout } from './layout.js';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      Theme.init();
+      
+      const user = await Auth.getCurrentUser();
+      if (!user || user.role !== 'admin') {
+        window.location.href = 'dashboard.html';
+        return;
+      }
+
+      await renderLayout('Painel Admin', 'Gerenciamento de usuários e acessos', 'admin');
+      
+      const pageContent = document.getElementById('pageContent');
+      if (!pageContent) return;
+
+      pageContent.innerHTML = `
+        <div class="grid-stats" style="margin-bottom:32px;">
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Total de Usuários</p>
+            <h2 id="totalUsers" style="font-size:28px; font-weight:800;">0</h2>
+          </div>
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--success); margin-bottom:8px;">Usuários Ativos</p>
+            <h2 id="activeUsers" style="font-size:28px; font-weight:800; color:var(--success);">0</h2>
+          </div>
+          <div class="card">
+            <p style="font-size:14px; font-weight:700; color:var(--danger); margin-bottom:8px;">Aguardando Ativação</p>
+            <h2 id="pendingUsers" style="font-size:28px; font-weight:800; color:var(--danger);">0</h2>
+          </div>
+        </div>
+
+        <div id="usersGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:24px;">
+          <!-- Cards de usuários carregados aqui -->
+        </div>
+
+        <!-- Botão Suporte WhatsApp -->
+        <a href="https://wa.me/5579996069704?text=Olá! Preciso de suporte no sistema GestãoPro." target="_blank" class="fab-support" title="Falar com Suporte">
+          <i data-lucide="message-circle" size="24"></i>
+        </a>
+      `;
+
+      if (window.lucide) window.lucide.createIcons();
+      loadUsers();
+    });
+
+    async function loadUsers() {
+      const users = await DataHelper.getAll('users');
+      const grid = document.getElementById('usersGrid');
+      
+      let active = 0, pending = 0;
+      users.forEach(u => {
+        if (u.status === 'active') active++;
+        else pending++;
+      });
+
+      document.getElementById('totalUsers').textContent = users.length;
+      document.getElementById('activeUsers').textContent = active;
+      document.getElementById('pendingUsers').textContent = pending;
+
+      grid.innerHTML = users.map(u => `
+        <div class="card animate-in" style="display:flex; flex-direction:column; gap:16px;">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <div style="width:48px; height:48px; border-radius:12px; background:var(--primary); color:white; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px;">
+              \${u.name ? u.name.charAt(0).toUpperCase() : '?'}
+            </div>
+            <div style="flex:1; overflow:hidden;">
+              <h4 style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\${u.name || 'Sem Nome'}</h4>
+              <p style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\${u.email}</p>
+            </div>
+          </div>
+          
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="badge" style="background:\${u.status === 'active' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'}; color:\${u.status === 'active' ? 'var(--success)' : 'var(--danger)'}; padding:4px 12px; border-radius:30px; font-size:12px; font-weight:700;">
+              \${u.status === 'active' ? 'ATIVO' : 'INATIVO'}
+            </span>
+            <div style="display:flex; gap:8px;">
+              \${u.status === 'active' ? 
+                \`<button class="btn btn-outline" style="padding:6px 12px; font-size:12px; color:var(--danger);" onclick="updateStatus('\${u.id}', 'inactive')">Bloquear</button>\` :
+                \`<button class="btn btn-primary" style="padding:6px 12px; font-size:12px;" onclick="updateStatus('\${u.id}', 'active')">Ativar</button>\`
+              }
+              <button class="btn btn-outline" style="padding:6px; color:var(--danger); border:none;" onclick="deleteUser('\${u.id}')">
+                <i data-lucide="trash-2" size="18"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    window.updateStatus = async (id, status) => {
+      await DataHelper.update('users', id, { status });
+      showToast(\`Usuário \${status === 'active' ? 'ativado' : 'bloqueado'}!\`);
+      loadUsers();
+    };
+
+    window.deleteUser = async (id) => {
+      if (confirm('Deseja excluir permanentemente este usuário?')) {
+        await DataHelper.delete('users', id);
+        showToast('Usuário removido!');
+        loadUsers();
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro — GestãoPro</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-page">
+  <div class="auth-card animate-in">
+    <div style="text-align:center; margin-bottom:32px;">
+      <div style="width:64px; height:64px; background:var(--primary); border-radius:18px; display:flex; align-items:center; justify-content:center; color:white; margin:0 auto 16px; box-shadow:0 10px 20px rgba(99,102,241,0.3);">
+        <i data-lucide="user-plus" size="32"></i>
+      </div>
+      <h1 style="font-size:28px; font-weight:800; color:var(--text-main); letter-spacing:-0.03em;">Crie sua conta</h1>
+      <p style="color:var(--text-muted); font-size:14px; font-weight:500;">Comece a gerir seu negócio hoje</p>
+    </div>
+
+    <form id="registerForm" style="display:grid; gap:20px;">
+      <div class="form-group">
+        <label>Nome Completo</label>
+        <div style="position:relative;">
+          <i data-lucide="user" size="18" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+          <input type="text" id="name" placeholder="Seu nome" required style="padding-left:48px;" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>E-mail</label>
+        <div style="position:relative;">
+          <i data-lucide="mail" size="18" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+          <input type="email" id="email" placeholder="seu@email.com" required style="padding-left:48px;" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Senha</label>
+        <div style="position:relative;">
+          <i data-lucide="lock" size="18" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+          <input type="password" id="password" placeholder="Mínimo 6 caracteres" required style="padding-left:48px; padding-right:48px;" />
+          <button type="button" id="togglePassword" style="position:absolute; right:16px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; display:flex;">
+            <i data-lucide="eye" size="18"></i>
+          </button>
+        </div>
+      </div>
+
+      <div style="padding:16px; background:var(--bg-hover); border-radius:14px; border:1px solid var(--border-color);">
+        <p style="font-size:12px; color:var(--text-muted); font-weight:700; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">Pergunta de Segurança (Recuperação)</p>
+        <div class="form-group" style="margin-bottom:12px;">
+          <select id="securityQuestion" style="width:100%; height:48px; padding:0 16px; border-radius:10px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+            <option value="Qual o nome da sua cidade natal?">Qual o nome da sua cidade natal?</option>
+            <option value="Qual o nome do seu primeiro animal?">Qual o nome do seu primeiro animal?</option>
+            <option value="Qual a sua comida favorita?">Qual a sua comida favorita?</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input type="text" id="securityAnswer" placeholder="Sua resposta secreta" required style="height:48px;" />
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="submitBtn" style="height:52px; justify-content:center; font-size:16px;">Criar minha conta</button>
+    </form>
+
+    <p style="text-align:center; margin-top:32px; font-size:14px; color:var(--text-muted); font-weight:600;">
+      Já tem uma conta? <a href="index.html" style="color:var(--primary); text-decoration:none; font-weight:800;">Fazer login</a>
+    </p>
+  </div>
+
+  <script type="module">
+    import { Auth, Theme, showToast } from './app.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      Theme.init();
+      if (window.lucide) window.lucide.createIcons();
+
+      const registerForm = document.getElementById('registerForm');
+      const togglePassword = document.getElementById('togglePassword');
+      const passwordInput = document.getElementById('password');
+
+      togglePassword.onclick = () => {
+        const type = passwordInput.type === 'password' ? 'text' : 'password';
+        passwordInput.type = type;
+        togglePassword.innerHTML = `<i data-lucide="${type === 'password' ? 'eye' : 'eye-off'}" size="18"></i>`;
+        lucide.createIcons();
+      };
+
+      registerForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = 'Criando conta...';
+
+        const name = document.getElementById('name').value;
+        const email = document.getElementById('email').value;
+        const password = passwordInput.value;
+        const question = document.getElementById('securityQuestion').value;
+        const answer = document.getElementById('securityAnswer').value;
+
+        const res = await Auth.register(name, email, password, question, answer);
+        
+        if (res.success) {
+          showToast('Conta criada com sucesso! Aguarde ativação.');
+          setTimeout(() => window.location.href = 'dashboard.html', 1500);
+        } else {
+          showToast(res.message, 'error');
+          btn.disabled = false;
+          btn.innerText = originalText;
+        }
+      };
+    });
+  </script>
+</body>
+</html>

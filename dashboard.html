@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — GestãoPro</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <script type="module">
+    import { Auth, DataHelper, Theme, Format, showToast } from './app.js';
+    import { renderLayout } from './layout.js';
+
+    let charts = {};
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Inicializar Tema
+      Theme.init();
+      
+      // 2. Renderizar Layout (espera o Auth)
+      await renderLayout('Dashboard', 'Visão geral do seu negócio', 'dashboard');
+      
+      const pageContent = document.getElementById('pageContent');
+      if (!pageContent) return; // Segurança contra erro de DOM
+
+      pageContent.innerHTML = `
+        <div class="grid-stats" style="margin-bottom:32px;">
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+              <div style="width:48px; height:48px; background:rgba(34,197,94,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--success);">
+                <i data-lucide="trending-up" size="24"></i>
+              </div>
+              <p style="font-size:14px; font-weight:700; color:var(--text-muted);">Receitas (Mês)</p>
+            </div>
+            <h2 id="dashReceita" style="font-size:32px; font-weight:800; color:var(--text-main);">R$ 0,00</h2>
+          </div>
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+              <div style="width:48px; height:48px; background:rgba(239,68,68,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--danger);">
+                <i data-lucide="trending-down" size="24"></i>
+              </div>
+              <p style="font-size:14px; font-weight:700; color:var(--text-muted);">Despesas (Mês)</p>
+            </div>
+            <h2 id="dashDespesa" style="font-size:32px; font-weight:800; color:var(--text-main);">R$ 0,00</h2>
+          </div>
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+              <div style="width:48px; height:48px; background:rgba(99,102,241,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--primary);">
+                <i data-lucide="wallet" size="24"></i>
+              </div>
+              <p style="font-size:14px; font-weight:700; color:var(--text-muted);">Saldo Atual</p>
+            </div>
+            <h2 id="dashSaldo" style="font-size:32px; font-weight:800; color:var(--text-main);">R$ 0,00</h2>
+          </div>
+          <div class="card">
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+              <div style="width:48px; height:48px; background:rgba(245,158,11,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--warning);">
+                <i data-lucide="package" size="24"></i>
+              </div>
+              <p style="font-size:14px; font-weight:700; color:var(--text-muted);">Itens em Estoque</p>
+            </div>
+            <h2 id="dashEstoque" style="font-size:32px; font-weight:800; color:var(--text-main);">0</h2>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(400px, 1fr)); gap:24px; margin-bottom:32px;">
+          <div class="card">
+            <h3 style="font-size:18px; font-weight:800; margin-bottom:24px;">Fluxo de Caixa (Últimos 6 meses)</h3>
+            <div style="height:300px;"><canvas id="dashLineChart"></canvas></div>
+          </div>
+          <div class="card">
+            <h3 style="font-size:18px; font-weight:800; margin-bottom:24px;">Despesas por Categoria</h3>
+            <div style="height:300px; display:flex; align-items:center; justify-content:center;">
+              <canvas id="dashPieChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+            <h3 style="font-size:18px; font-weight:800; color:var(--text-main);">Últimas Transações</h3>
+            <button class="btn btn-outline" onclick="window.location.href='financeiro.html'">Ver todas <i data-lucide="arrow-right" size="16"></i></button>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Data</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+              <tbody id="recentTransactions"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Botão Suporte WhatsApp -->
+        <a href="https://wa.me/5579996069704?text=Olá! Preciso de suporte no sistema GestãoPro." target="_blank" class="fab-support" title="Falar com Suporte">
+          <i data-lucide="message-circle" size="24"></i>
+        </a>
+      `;
+
+      if (window.lucide) window.lucide.createIcons();
+      loadDashboardData();
+    });
+
+    async function loadDashboardData() {
+      const transactions = await DataHelper.getAll('transactions');
+      const products = await DataHelper.getAll('products');
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      let receitaMes = 0, despesaMes = 0, saldoTotal = 0;
+      const categories = {};
+      const monthlyData = {};
+
+      transactions.forEach(t => {
+        const val = parseFloat(t.amount);
+        const date = new Date(t.date);
+        const m = date.getMonth();
+        const y = date.getFullYear();
+
+        if (m === currentMonth && y === currentYear) {
+          if (t.type === 'entrada' || t.type === 'receita' || t.type === 'income') receitaMes += val;
+          else despesaMes += val;
+        }
+
+        if (t.type === 'entrada' || t.type === 'receita' || t.type === 'income') saldoTotal += val;
+        else {
+          saldoTotal -= val;
+          categories[t.category] = (categories[t.category] || 0) + val;
+        }
+
+        const monthKey = date.toLocaleString('pt-BR', { month: 'short' });
+        if (!monthlyData[monthKey]) monthlyData[monthKey] = { r: 0, d: 0 };
+        if (t.type === 'entrada' || t.type === 'receita' || t.type === 'income') monthlyData[monthKey].r += val;
+        else monthlyData[monthKey].d += val;
+      });
+
+      document.getElementById('dashReceita').textContent = Format.currency(receitaMes);
+      document.getElementById('dashDespesa').textContent = Format.currency(despesaMes);
+      document.getElementById('dashSaldo').textContent = Format.currency(saldoTotal);
+      document.getElementById('dashEstoque').textContent = products.reduce((acc, p) => acc + parseInt(p.quantity || 0), 0);
+
+      // Transações Recentes
+      const recentList = document.getElementById('recentTransactions');
+      const recent = transactions.slice(-5).reverse();
+      
+      if (recent.length === 0) {
+        recentList.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:40px; color:var(--text-muted);">Nenhuma transação encontrada.</td></tr>';
+      } else {
+        recentList.innerHTML = recent.map(t => `
+          <tr>
+            <td style="font-weight:700; color:var(--text-main);">${t.description}</td>
+            <td><span style="background:var(--bg-hover); padding:4px 10px; border-radius:30px; font-size:12px; font-weight:700; color:var(--text-muted);">${t.category}</span></td>
+            <td>${Format.date(t.date)}</td>
+            <td style="color:${(t.type === 'entrada' || t.type === 'receita' || t.type === 'income') ? 'var(--success)' : 'var(--danger)'}; font-weight:800;">
+              ${(t.type === 'entrada' || t.type === 'receita' || t.type === 'income') ? '+' : '-'} ${Format.currency(t.amount)}
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      renderCharts(monthlyData, categories);
+    }
+
+    function renderCharts(monthly, cats) {
+      const labels = Object.keys(monthly).slice(-6);
+      const rData = labels.map(l => monthly[l].r);
+      const dData = labels.map(l => monthly[l].d);
+
+      const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Plus Jakarta Sans', weight: '600' } } } }
+      };
+
+      if (charts.line) charts.line.destroy();
+      const lineCtx = document.getElementById('dashLineChart');
+      if (lineCtx) {
+        charts.line = new Chart(lineCtx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Receitas', data: rData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.4 },
+              { label: 'Despesas', data: dData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.4 }
+            ]
+          },
+          options: commonOptions
+        });
+      }
+
+      if (charts.pie) charts.pie.destroy();
+      const pieCtx = document.getElementById('dashPieChart');
+      if (pieCtx) {
+        charts.pie = new Chart(pieCtx, {
+          type: 'doughnut',
+          data: {
+            labels: Object.keys(cats),
+            datasets: [{ data: Object.values(cats), backgroundColor: ['#6366f1', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'], borderWidth: 0 }]
+          },
+          options: { ...commonOptions, cutout: '70%' }
+        });
+      }
+    }
+  </script>
+</body>
+</html>

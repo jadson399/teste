@@ -1,0 +1,18 @@
+{
+  "name": "GestãoPro Premium",
+  "short_name": "GestãoPro",
+  "description": "Sistema de Gestão Empresarial Premium",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1055/1055644.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

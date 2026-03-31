@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — GestãoPro</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent),
+                  radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.05), transparent),
+                  var(--bg-app);
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 440px;
+      padding: 48px;
+      border-radius: 32px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-lg);
+    }
+    .google-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: var(--transition);
+      margin-top: 24px;
+    }
+    .google-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--primary);
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      gap: 12px;
+    }
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border-color);
+    }
+    .divider-text {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .password-toggle {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card animate-fade">
+    <div style="text-align:center; margin-bottom:40px;">
+      <div style="margin: 0 auto 20px; width: 64px; height: 64px; border-radius: 18px; background: var(--primary); display:flex; align-items:center; justify-content:center; color:white; box-shadow: 0 8px 20px rgba(99,102,241,0.3);">
+        <i data-lucide="bar-chart-3" size="32"></i>
+      </div>
+      <h1 style="font-size:28px; font-weight:800; letter-spacing:-0.03em; margin-bottom:8px;">GestãoPro</h1>
+      <p style="color:var(--text-muted); font-weight:500;">SaaS de Gestão Empresarial</p>
+    </div>
+
+    <div style="margin-bottom:24px;">
+      <label style="display:block; font-size:13px; font-weight:700; margin-bottom:8px;">E-mail</label>
+      <div style="position:relative;">
+        <i data-lucide="mail" size="18" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+        <input type="email" id="email" placeholder="seu@email.com" style="width:100%; height:52px; padding-left:44px; border-radius:14px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-weight:500;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <label style="font-size:13px; font-weight:700;">Senha</label>
+        <a href="#" id="forgotPassBtn" style="font-size:12px; font-weight:700; color:var(--primary); text-decoration:none;">Esqueceu a senha?</a>
+      </div>
+      <div style="position:relative;">
+        <i data-lucide="lock" size="18" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+        <input type="password" id="password" placeholder="••••••••" style="width:100%; height:52px; padding-left:44px; padding-right:44px; border-radius:14px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-main); font-weight:500;">
+        <span class="password-toggle" id="togglePassBtn">
+          <i data-lucide="eye" size="20" id="eye-password"></i>
+        </span>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">
+      <input type="checkbox" id="remember" style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer;">
+      <label for="remember" style="font-size:13px; color:var(--text-muted); font-weight:600; cursor:pointer;">Lembrar de mim</label>
+    </div>
+
+    <button class="btn btn-primary" id="loginBtn" style="width:100%; height:56px; font-size:16px; border-radius:16px; margin-top:0;">
+      Entrar no sistema
+    </button>
+
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span class="divider-text">ou</span>
+      <div class="divider-line"></div>
+    </div>
+
+    <button class="google-btn" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z"/>
+      </svg>
+      Entrar com Google
+    </button>
+
+    <p style="text-align:center; font-size:14px; color:var(--text-muted); font-weight:500; margin-top:32px;">
+      Não tem conta? <a href="register.html" style="color:var(--primary); font-weight:700; text-decoration:none;">Criar conta grátis</a>
+    </p>
+  </div>
+
+  <script type="module">
+    import { Auth, Theme, showToast } from './app.js';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      Theme.init();
+      if (window.lucide) window.lucide.createIcons();
+      
+      const loginBtn = document.getElementById('loginBtn');
+      const googleBtn = document.getElementById('googleBtn');
+      const togglePassBtn = document.getElementById('togglePassBtn');
+      const forgotPassBtn = document.getElementById('forgotPassBtn');
+
+      // Lembrar e-mail
+      const savedEmail = localStorage.getItem('remembered_email');
+      if (savedEmail) {
+        document.getElementById('email').value = savedEmail;
+        document.getElementById('remember').checked = true;
+      }
+
+      loginBtn.onclick = async () => {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        const remember = document.getElementById('remember').checked;
+        
+        if (!email || !pass) {
+          showToast('Preencha e-mail e senha!', 'danger');
+          return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Autenticando...';
+
+        const res = await Auth.login(email, pass, remember);
+        if (res.success) {
+          if (remember) localStorage.setItem('remembered_email', email);
+          else localStorage.removeItem('remembered_email');
+          window.location.href = 'dashboard.html';
+        } else {
+          showToast(res.message, 'danger');
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Entrar no sistema';
+        }
+      };
+
+      googleBtn.onclick = async () => {
+        const res = await Auth.loginWithGoogle();
+        if (res.success) {
+          window.location.href = 'dashboard.html';
+        } else {
+          showToast(res.message, 'danger');
+        }
+      };
+
+      togglePassBtn.onclick = () => {
+        const input = document.getElementById('password');
+        const icon = document.getElementById('eye-password');
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+          input.type = 'password';
+          icon.setAttribute('data-lucide', 'eye');
+        }
+        if (window.lucide) window.lucide.createIcons();
+      };
+
+      forgotPassBtn.onclick = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        if (!email) {
+          showToast('Digite seu e-mail acima primeiro!', 'danger');
+          return;
+        }
+        
+        const res = await Auth.resetPassword(email);
+        if (res.success) {
+          showToast(res.message, 'success');
+        } else {
+          const answer = prompt("Não conseguimos enviar o e-mail. Responda sua Pergunta de Segurança para prosseguir:\n(Sua resposta cadastrada)");
+          if (!answer) return;
+          
+          const verify = await Auth.verifySecurityAnswer(email, answer);
+          if (verify.success) {
+            showToast("Identidade confirmada! Tente redefinir a senha agora.", 'success');
+            await Auth.resetPassword(email);
+          } else {
+            showToast(verify.message, 'danger');
+          }
+        }
+      };
+    });
+  </script>
+</body>
+</html>
